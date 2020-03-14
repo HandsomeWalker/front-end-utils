@@ -101,7 +101,7 @@ function setMyTitle(title) {
     return;
   }
   document.title = title;
-  var mobile = navigator.userAgent.toLowerCase();
+  const mobile = navigator.userAgent.toLowerCase();
   if (/dingtalk/.test(mobile)) {
     // 钉钉环境
     ready(function() {
@@ -109,13 +109,13 @@ function setMyTitle(title) {
     });
   } else if (/micromessenger/.test(mobile)) {
     // 微信环境
-    var iframe = document.createElement("iframe");
+    const iframe = document.createElement("iframe");
     iframe.style.display = "none";
     iframe.setAttribute(
       "src",
       "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
     );
-    var iframeCallback = function() {
+    const iframeCallback = function() {
       setTimeout(function() {
         iframe.removeEventListener("load", iframeCallback);
         document.body.removeChild(iframe);
@@ -404,3 +404,24 @@ export const expireLocalStorage = {
     return this
   }
 }
+/**
+ * 绑定点击元素外的触发事件
+ * @param {element} el 
+ * @param {function} cb 
+ */
+function OnClickOutside(el, cb) {
+  this.evt = function (e) {
+    const itsChildren = el.contains(e.target);
+    if(e.target !== el && !itsChildren) {
+      return cb ? cb() : null;
+    }
+  };
+  document.addEventListener('click', this.evt, false);
+  return this;
+}
+OnClickOutside.prototype.remove = function () {
+  document.removeEventListener('click', this.evt, false);
+};
+OnClickOutside.prototype.reinit = function () {
+  document.addEventListener('click', this.evt, false);
+};
