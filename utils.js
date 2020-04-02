@@ -409,7 +409,7 @@ export const expireLocalStorage = {
  * @param {element} el 
  * @param {function} cb 
  */
-function OnClickOutside(el, cb) {
+export function OnClickOutside(el, cb) {
   this.evt = function (e) {
     const itsChildren = el.contains(e.target);
     if(e.target !== el && !itsChildren) {
@@ -425,3 +425,47 @@ OnClickOutside.prototype.remove = function () {
 OnClickOutside.prototype.reinit = function () {
   document.addEventListener('click', this.evt, false);
 };
+/**
+ * 转为树形结构，时间复杂度：O(n²+n)，空间复杂度：O(1)
+ * @param {array} data 数据源
+ * @param {object} option 别名
+ */
+export function plain2Tree(data, { label = 'label', value = 'value', id = 'id', pid = 'pid' }) {
+  let res = JSON.parse(JSON.stringify(data))
+  res.forEach((item) => {
+    const parentID = item[pid]
+    if (parentID) {
+      res.forEach((each) => {
+        if (each[id] === parentID) {
+          if (!each.children) {
+            each.children = []
+          }
+          each.children.push(item)
+        }
+      })
+    }
+  })
+  res = res.filter(ele => !ele[pid])
+  return res
+}
+/**
+ * 转为树形结构，时间复杂度：O(2n)，空间复杂度：O(n)
+ * @param {array} data 数据源
+ * @param {object} option 别名
+ */
+export function plain2Tree(data, { label = 'label', value = 'value', id = 'id', pid = 'pid' }) {
+  var map = {};
+  data.forEach(function (item) {
+    map[item[id]] = item;
+  });
+  var val = [];
+  data.forEach(function (item) {
+    var parent = map[item[pid]];
+    if (parent) {
+      (parent.children || ( parent.children = [] )).push(item);
+    } else {
+      val.push(item);
+    }
+  });
+  return val;
+}
