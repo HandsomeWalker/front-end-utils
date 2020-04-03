@@ -430,9 +430,15 @@ OnClickOutside.prototype.reinit = function () {
  * @param {array} data 数据源
  * @param {object} option 别名
  */
-export function plain2Tree(data, { label = 'label', value = 'value', id = 'id', pid = 'pid' }) {
+export function plain2Tree(data, { label, value, id = 'id', pid = 'pid' }) {
   let res = JSON.parse(JSON.stringify(data))
   res.forEach((item) => {
+    if (Array.isArray(label)) {
+      item[label[1]] = item[label[0]]
+    }
+    if (Array.isArray(value)) {
+      item[value[1]] = item[value[0]]
+    }
     const parentID = item[pid]
     if (parentID) {
       res.forEach((each) => {
@@ -453,14 +459,21 @@ export function plain2Tree(data, { label = 'label', value = 'value', id = 'id', 
  * @param {array} data 数据源
  * @param {object} option 别名
  */
-export function plain2Tree(data, { label = 'label', value = 'value', id = 'id', pid = 'pid' }) {
-  var map = {};
-  data.forEach(function (item) {
+export function plain2Tree(data, { label, value, id = 'id', pid = 'pid' }) {
+  let res = JSON.parse(JSON.stringify(data))
+  let map = {};
+  res.forEach(function (item) {
+    if (Array.isArray(label)) {
+      item[label[1]] = item[label[0]]
+    }
+    if (Array.isArray(value)) {
+      item[value[1]] = item[value[0]]
+    }
     map[item[id]] = item;
   });
-  var val = [];
-  data.forEach(function (item) {
-    var parent = map[item[pid]];
+  let val = [];
+  res.forEach(function (item) {
+    let parent = map[item[pid]];
     if (parent) {
       (parent.children || ( parent.children = [] )).push(item);
     } else {
