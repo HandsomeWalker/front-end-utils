@@ -430,8 +430,17 @@ OnClickOutside.prototype.reinit = function () {
  * @param {array} data 数据源
  * @param {object} option 别名
  */
-export function plain2Tree(data, { label, value, id = 'id', pid = 'pid' }) {
+export function plain2Tree(data, option) {
   let res = JSON.parse(JSON.stringify(data))
+  let label, value
+  let id = 'id'
+  let pid = 'pid'
+  if (Object.prototype.toString.call(option) === '[object Object]') {
+    label = option.label
+    value = option.value
+    option.id && (id = option.id)
+    option.pid && (pid = option.pid)
+  }
   res.forEach((item) => {
     if (Array.isArray(label)) {
       item[label[1]] = item[label[0]]
@@ -459,9 +468,18 @@ export function plain2Tree(data, { label, value, id = 'id', pid = 'pid' }) {
  * @param {array} data 数据源
  * @param {object} option 别名
  */
-export function plain2Tree(data, { label, value, id = 'id', pid = 'pid' }) {
-  let res = JSON.parse(JSON.stringify(data))
-  let map = {};
+export function plain2Tree(data, option) {
+  const res = JSON.parse(JSON.stringify(data))
+  const map = {}
+  let label, value
+  let id = 'id'
+  let pid = 'pid'
+  if (Object.prototype.toString.call(option) === '[object Object]') {
+    label = option.label
+    value = option.value
+    option.id && (id = option.id)
+    option.pid && (pid = option.pid)
+  }
   res.forEach(function (item) {
     if (Array.isArray(label)) {
       item[label[1]] = item[label[0]]
@@ -469,16 +487,16 @@ export function plain2Tree(data, { label, value, id = 'id', pid = 'pid' }) {
     if (Array.isArray(value)) {
       item[value[1]] = item[value[0]]
     }
-    map[item[id]] = item;
+    map[item[id]] = item
   });
-  let val = [];
+  const val = [];
   res.forEach(function (item) {
-    let parent = map[item[pid]];
+    const parent = map[item[pid]]
     if (parent) {
-      (parent.children || ( parent.children = [] )).push(item);
+      (parent.children || ( parent.children = [] )).push(item)
     } else {
-      val.push(item);
+      val.push(item)
     }
   });
-  return val;
+  return val
 }
