@@ -500,3 +500,19 @@ export function plain2Tree(data, option) {
   });
   return val
 }
+/**
+ * 树结构转平级
+ * @param {array} data 
+ */
+function tree2Plain(data) {
+  let res = []
+  for (let i = 0, len = data.length; i < len; i++) {
+    res.push(data[i])
+    const temp = data[i].children
+    if (temp) {
+      delete data[i].children
+      res = res.concat(tree2Plain(temp))
+    }
+  }
+  return res
+}
