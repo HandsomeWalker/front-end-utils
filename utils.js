@@ -426,7 +426,7 @@ OnClickOutside.prototype.reinit = function () {
   document.addEventListener('click', this.evt, false);
 };
 /**
- * 转为树形结构，时间复杂度：O(n²+n)，空间复杂度：O(1)
+ * 转为树形结构，时间复杂度：O(n²)，空间复杂度：O(1)
  * @param {array} data 数据源
  * @param {object} option 别名
  */
@@ -464,7 +464,7 @@ export function plain2Tree(data, option) {
   return res
 }
 /**
- * 转为树形结构，时间复杂度：O(2n)，空间复杂度：O(n)
+ * 转为树形结构，时间复杂度：O(n)，空间复杂度：O(n)
  * @param {array} data 数据源
  * @param {object} option 别名
  */
