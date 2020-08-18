@@ -29,8 +29,8 @@ function genRouter(name) {
   // genComponent(name, "src/views");
   const src = path.join(__dirname, "src/router/index.js");
   const code = fs.readFileSync(src, "utf-8");
-  const ast = babylon.parse(code, {
-    sourceType: "module"
+  const ast = recast.parse(code, {
+    parser: babylon
   });
   recast.visit(ast, {
     visitArrayExpression(path) {
