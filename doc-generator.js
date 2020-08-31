@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const recast = require("recast");
 const babylon = require("@babel/parser");
+const { exec } = require("child_process");
 
 const argv = process.argv.slice(2);
 const type = argv[0];
@@ -26,7 +27,6 @@ export default {
 }
 /* 路由 */
 function genRouter(name) {
-  // genComponent(name, "src/views");
   const src = path.join(__dirname, "src/router/index.js");
   const code = fs.readFileSync(src, "utf-8");
   const ast = recast.parse(code, {
@@ -56,20 +56,35 @@ function genRouter(name) {
       return false;
     }
   });
-  console.log(recast.print(ast, { tabWidth: 2 }).code);
-  // fs.writeFileSync(src, recast.print(ast, { tabWidth: 2 }).code);
+  // console.log(recast.prettyPrint(ast, { tabWidth: 2 }).code);
+  fs.writeFileSync(src, recast.print(ast, { tabWidth: 2 }).code);
+  return genComponent(name, "src/views");
+}
+function lintFile(filePath) {
+  exec(`npm run lint ${filePath}`, function() {
+    console.log("*lint finish");
+  });
 }
 function gen(type, name) {
+  let filePath = "";
   switch (type) {
     case "component":
-      genComponent(name);
+      filePath = genComponent(name);
+      console.log(`*已生成组件${filePath}`);
       break;
     case "router":
-      genRouter(name);
+      filePath = genRouter(name);
+      console.log(`*已生成页面文件${filePath}`);
+      filePath += ` ${path.join(__dirname, "src/router/index.js")}`;
       break;
     default:
       break;
   }
+  try {
+    require("eslint");
+    lintFile(filePath);
+  } catch (err) {
+    console.log("*无eslint");
+  }
 }
 gen(type, name);
-console.log("****文件已生成****");
