@@ -409,7 +409,7 @@ export const expireLocalStorage = {
  * @param {element} el 
  * @param {function} cb 
  */
-export function OnClickOutside(el, cb) {
+export function onClickOutside(el, cb) {
   this.evt = function (e) {
     const itsChildren = el.contains(e.target);
     if(e.target !== el && !itsChildren) {
@@ -419,10 +419,10 @@ export function OnClickOutside(el, cb) {
   document.addEventListener('click', this.evt, false);
   return this;
 }
-OnClickOutside.prototype.remove = function () {
+onClickOutside.prototype.remove = function () {
   document.removeEventListener('click', this.evt, false);
 };
-OnClickOutside.prototype.reinit = function () {
+onClickOutside.prototype.reinit = function () {
   document.addEventListener('click', this.evt, false);
 };
 /**
