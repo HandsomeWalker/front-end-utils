@@ -48,7 +48,7 @@ export const isJson = function(something) {
   if (!isString(something)) {
     return false;
   }
-  return /({.*}|\[.*\])/.test(something);
+  return /(^{.*}$|^\[.*\]$)/g.test(something);
 };
 /**
  * 深复制数组
