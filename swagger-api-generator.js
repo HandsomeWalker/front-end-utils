@@ -1,8 +1,13 @@
 /**
- * api接口文件生成工具，可传2个命令行参数，第1个url为swagger api的请求地址必传，第2个是目标的相对目录dirname，可写入npm script方便执行
+ * api接口文件生成工具，可传5个命令行参数，可写入npm script方便执行
+ * @param url 必传，swagger文档接口，如：http://172.27.17.123:8989/v2/api-docs
+ * @param tarDir 可选，生成文件的目标目录，default: ./
+ * @param fileName 可选，生成文件名，default: swagger-api
+ * @param fileType 可选，生成ts还是js，default: ts
+ * @param template 可选，生成的ts或者js文件顶部自定义的代码段，default: ''
  * @author HandsomeWalker
  * @example
- * node swagger-api-generator.js http://foo/bar ./foo/bar
+ * node swagger-api-generator.js url=http://foo/bar tarDir=./foo/bar fileName=service fileType=ts template='import request from "./funcRequest";import QS from "qs";'
  */
 
 const fs = require('fs');
@@ -10,8 +15,33 @@ const http = require('http');
 const _path = require('path');
 
 const argvs = process.argv.slice(2);
-let [url, tarDir] = argvs;
+let url, tarDir, fileName, fileType, template;
+for (const item of argvs) {
+  if (/url=.+/g.test(item)) {
+    url = item.replace(/url=/g, '');
+  }
+  if (/tarDir=.+/g.test(item)) {
+    tarDir = item.replace(/tarDir=/g, '');
+  }
+  if (/fileName=.+/g.test(item)) {
+    fileName = item.replace(/fileName=/g, '');
+  }
+  if (/fileType=.+/g.test(item)) {
+    fileType = item.replace(/fileType=/g, '');
+  }
+  if (/template=.+/g.test(item)) {
+    template = item.replace(/template=/g, '');
+  }
+}
 typeof tarDir === 'undefined' && (tarDir = '.');
+typeof fileName === 'undefined' && (fileName = 'swagger-api');
+if (
+  typeof fileType === 'undefined' ||
+  (fileType !== 'ts' && fileType !== 'js')
+) {
+  fileType = 'ts';
+}
+typeof template === 'undefined' && (template = '');
 let count = 0;
 
 const UA =
@@ -60,6 +90,17 @@ function request(options) {
 const fieldTypeMap = {
   string: 'string | number',
   integer: 'string | number',
+  array: 'any[]',
+  object: 'any',
+  boolean: 'boolean',
+  ref: 'any',
+};
+const responseTypeMap = {
+  string: 'string',
+  integer: 'number',
+  array: 'any[]',
+  object: 'any',
+  boolean: 'boolean',
   ref: 'any',
 };
 // 获取每行type字段
@@ -68,13 +109,33 @@ function getTypeField(item) {
     fieldTypeMap[item.type] ? fieldTypeMap[item.type] : 'any'
   };\n`;
 }
+// 获取响应字段配置
+function getResponseFields(props) {
+  let resObj = {
+    contentJsDoc: '',
+    contentTypes: '',
+    contentTypesDoc: '',
+  };
+  for (const key in props) {
+    const item = props[key];
+    const { description, type } = item;
+    resObj.contentJsDoc += ` * @returns ${key} description: ${description} | type: ${type}\n`;
+    resObj.contentTypesDoc += ` * @param {${
+      responseTypeMap[type] || 'any'
+    }} ${key} description: ${description} | type: ${type}\n`;
+    resObj.contentTypes += `${key}: ${responseTypeMap[type] || 'any'};\n`;
+  }
+  return resObj;
+}
 /**
  * 统一生成模板
  * @param {*} path
  * @param {*} api
- * @returns
+ * @param {*} definitionsObj
+ * @returns a:电视
+ * @returns b:电视放
  */
-function genTemplate(path, api) {
+function genTemplate(path, api, definitionsObj) {
   const names = path.split('/');
   let name = '';
   for (const item of names) {
@@ -92,8 +153,20 @@ function genTemplate(path, api) {
   const method = Object.keys(api)[0];
   const obj = api[method];
   const tags = obj.tags[0];
-  let { description, parameters, summary } = obj;
+  let { description, parameters, summary, responses, consumes } = obj;
   let showParamConfig = false;
+  let searchKey = '';
+  try {
+    searchKey = responses['200'].schema.originalRef.match(/«[^«»]+»/g)[0];
+  } catch (e) {}
+  let responseContentProps = {};
+  if (searchKey) {
+    searchKey = searchKey.replace(/[«»]/g, '');
+    responseContentProps = definitionsObj[searchKey];
+    if (responseContentProps) {
+      responseContentProps = responseContentProps.properties || {};
+    }
+  }
   // 路径参数
   if (/\{\w+\}/g.test(path)) {
     showParamConfig = true;
@@ -105,13 +178,24 @@ function genTemplate(path, api) {
   } else {
     path = "'" + path + "'";
   }
+  let isJsonData = true;
   let params = '  params: {\n';
-  let data =
-    "\theaders: { 'Content-Type': 'application/x-www-form-urlencoded' },\n" +
-    '  data: QS.stringify({\n';
+  let data = '  data: {\n';
+  if (consumes) {
+    if (consumes[0] === 'application/json') {
+      data = '  data: {\n';
+    }
+    if (consumes[0] === 'application/x-www-form-urlencoded') {
+      isJsonData = false;
+      data =
+        "\theaders: { 'Content-Type': 'application/x-www-form-urlencoded' },\n" +
+        '  data: QS.stringify({\n';
+    }
+  }
   let finalParams = '';
   let finalTypes = '';
   let finalComment = '';
+  let finalResponse = getResponseFields(responseContentProps);
   if (!parameters) {
     parameters = [];
   }
@@ -146,7 +230,7 @@ function genTemplate(path, api) {
     finalTypes += getTypeField(item);
   }
   params += '\t},\n';
-  data += '\t}),\n';
+  data += isJsonData ? '\t},\n' : '\t}),\n';
 
   if (hasParams || hasData) {
     showParamConfig = true;
@@ -156,48 +240,72 @@ function genTemplate(path, api) {
 
   return {
     contentJs: `
- /**
-  * ${summary}
- ${finalComment} */
- export const ${name} = (${showParamConfig ? 'paramConfig' : ''}) => request({
-   url: ${path},
-   method: '${method}',
- ${finalParams}});
- `,
-    contentTs: `
- /**
-  * ${summary}
- ${finalComment} */
- export const ${name} = (${
-      showParamConfig ? 'paramConfig: ' + name + 'Props' : ''
+  /**
+   * ${summary}
+  ${finalComment}${finalResponse.contentJsDoc}*/
+  export const ${name}${method.toUpperCase()} = (${
+      showParamConfig ? 'paramConfig' : ''
     }) => request({
-   url: ${path},
-   method: '${method}',
- ${finalParams}});
- `,
+    url: ${path},
+    method: '${method}',
+  ${finalParams}});
+  `,
+    contentTs: `
+  /**
+   * ${summary}
+  ${finalComment}${finalResponse.contentJsDoc}*/
+  export const ${name}${method.toUpperCase()} = (${
+      showParamConfig
+        ? 'paramConfig: ' + name + method.toUpperCase() + 'Props'
+        : ''
+    }): ${
+      finalResponse.contentTypes
+        ? 'Promise<' + name + method.toUpperCase() + 'ResProps>'
+        : 'Promise<any>'
+    } => request${
+      finalResponse.contentTypes
+        ? '<' + name + method.toUpperCase() + 'ResProps>'
+        : '<any>'
+    }({
+    url: ${path},
+    method: '${method}',
+  ${finalParams}});
+  `,
     contentType: `
- /**
-  * ${summary}
- ${finalComment} */
- interface ${name}Props extends anyFields {
- ${finalTypes}}`,
+  /**
+   * ${summary}
+  ${finalComment} */
+  interface ${name}${method.toUpperCase()}Props extends anyFields {
+  ${finalTypes}}
+  ${
+    finalResponse.contentTypes
+      ? '/**\n\t' +
+        finalResponse.contentTypesDoc +
+        '*/\ninterface ' +
+        name +
+        method.toUpperCase() +
+        'ResProps{\n' +
+        finalResponse.contentTypes +
+        '}'
+      : ''
+  }`,
   };
 }
 
 function handleSwaggerApis(data) {
-  let contentJs = "import req from '@/utils/request';\n";
-  let contentTs =
-    "const request = (o: {[key: string]: any;}) => {};\nimport QS from 'querystring';";
+  let contentJs = template;
+  let contentTs = template;
   let contentType = `interface anyFields { [key: string]: any }`;
 
   const jsonPath = `${tarDir}/swagger-apis.json`;
-  const jsPath = `${tarDir}/swagger-apis.js`;
-  const tsPath = `${tarDir}/swagger-apis.ts`;
-  const typePath = `${tarDir}/swagger-apis.d.ts`;
+  const jsPath = `${tarDir}/${fileName}.js`;
+  const tsPath = `${tarDir}/${fileName}.ts`;
+  const typePath = `${tarDir}/${fileName}Types.ts`;
   const isExists = fs.existsSync(jsonPath);
   let existsData;
 
   const pathObj = data.paths;
+  const definitionsObj = data.definitions;
 
   if (isExists) {
     existsData = require(jsonPath);
@@ -207,7 +315,7 @@ function handleSwaggerApis(data) {
   }
   let contentObj = {};
   for (const path in pathObj) {
-    contentObj = genTemplate(path, pathObj[path]);
+    contentObj = genTemplate(path, pathObj[path], definitionsObj);
     if (isExists) {
       if (!(path in existsData)) {
         contentJs += contentObj.contentJs;
@@ -223,9 +331,12 @@ function handleSwaggerApis(data) {
   }
   // cache &&
   //   fs.writeFileSync(jsonPath, JSON.stringify(pathObj));
-  createFile(jsPath, contentJs);
-  createFile(tsPath, contentTs);
-  createFile(typePath, contentType);
+  if (fileType === 'ts') {
+    createFile(tsPath, contentTs);
+    createFile(typePath, contentType);
+  } else if (fileType === 'js') {
+    createFile(jsPath, contentJs);
+  }
   console.log('***************api文件生成成功了(^_^)*****************');
   console.log(`[本次新增接口数量]: ${count}`);
 }
