@@ -294,7 +294,7 @@ function genTemplate(path, api, definitionsObj) {
 
 function handleSwaggerApis(data) {
   let contentJs = template;
-  let contentTs = template;
+  let contentTs = `import './${fileName}Types';\n` + template;
   let contentType = `interface anyFields { [key: string]: any }`;
 
   const jsonPath = `${tarDir}/swagger-apis.json`;
