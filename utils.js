@@ -13,6 +13,13 @@ export const isNull = function(something) {
   return something === null;
 };
 /**
+ * 判断是否为Number
+ * @param {*} something 任何
+ */
+export const isNumber = function (something) {
+  return typeof something === 'number' && !isRealNaN(something);
+};
+/**
  * 判断是否为NaN
  * @param {*} something 任何
  */
@@ -89,6 +96,9 @@ function cloneObj(src, tar) {
  * @param {array|object} src 
  */
 function simpleClone(src) {
+  if (!isObject(src) && !isArray(src)) {
+    return src;
+  }
   return JSON.parse(JSON.stringify(src))
 }
 /**
@@ -357,17 +367,22 @@ export const saver = function({
   }
 };
 /**
- * 多请求并发
+ * 多请求并发改良
+ * @param {array} pmsArr promise数组
+ * @param {any} exception 请求异常时希望返回的结果
  */
-export const reqAll = function(...args) {
-  return Promise.all(
-    args.map((item) =>
-      item.catch(() => {
-        return { code: 0 }
-      })
-    )
-  )
-}
+export const promiseAll = function (pmsArr, exception = { content: [] }) {
+  let _pmsArr = [];
+  if (!isArray(pmsArr)) {
+    return [];
+  }
+  for (const item of pmsArr) {
+    if (item instanceof Promise) {
+      _pmsArr.push(item.catch(() => exception));
+    }
+  }
+  return Promise.all(_pmsArr);
+};
 /**
  * 具有存储期限的localStorage
  * @example expireLocalStorage.setItem('test', {name: 'handsome'}, 5).removeItem('test').getItem('test', {})
@@ -515,4 +530,129 @@ function tree2Plain(data) {
     }
   }
   return res
+}
+/**
+ * 重置表单项
+ */
+export function resetForm(origin, replacement) {
+  if (!isObject(origin)) {
+    return origin;
+  }
+  let res = {};
+  for (const key in origin) {
+    const val = origin[key];
+    if (isString(val)) {
+      res[key] = '';
+    } else if (isNumber(val)) {
+      res[key] = 0;
+    } else if (isArray(val)) {
+      res[key] = [];
+    } else if (isObject(val)) {
+      res[key] = {};
+    }
+  }
+  if (isObject(replacement)) {
+    res = { ...res, ...replacement };
+  }
+  return res;
+}
+/* 浏览器全屏 */
+export function toFullScreen(e) {
+  let el = e.srcElement || e.target || e;
+  let isFullscreen =
+    document.fullScreen ||
+    document.mozFullScreen ||
+    document.webkitIsFullScreen;
+  if (!isFullscreen) {
+    // 先判断处于非全屏状态
+    (el.requestFullscreen && el.requestFullscreen()) ||
+      (el.mozRequestFullScreen && el.mozRequestFullScreen()) ||
+      (el.webkitRequestFullscreen && el.webkitRequestFullscreen()) ||
+      (el.msRequestFullscreen && el.msRequestFullscreen());
+  }
+}
+/* 退出全屏 */
+export function exitFullScreen() {
+  let isFullscreen =
+    document.fullScreen ||
+    document.mozFullScreen ||
+    document.webkitIsFullScreen;
+  if (isFullscreen) {
+    // 先判断处于非全屏状态
+    // eslint-disable-next-line no-unused-expressions
+    document.exitFullscreen
+      ? document.exitFullscreen()
+      : document.mozCancelFullScreen
+      ? document.mozCancelFullScreen()
+      : document.webkitExitFullscreen
+      ? document.webkitExitFullscreen()
+      : '';
+  }
+}
+/**
+ * 按key取数组
+ * @param {array} data 数据数组
+ * @param {...string} key 字段
+ */
+export function getArrByKeys(data, ...keys) {
+  const res = {};
+  if (!isArray(data)) {
+    return res;
+  }
+  for (const item of data) {
+    if (!isObject(item)) {
+      continue;
+    }
+    for (const key of keys) {
+      if (!isString(key)) {
+        continue;
+      }
+      const keyItem = item[key];
+      if (isUndefined(keyItem)) {
+        continue;
+      }
+      isUndefined(res[key]) ? (res[key] = [keyItem]) : res[key].push(keyItem);
+    }
+  }
+  return res;
+}
+/**
+ * 处理字段为null
+ * @param {object} dataObj 数据对象
+ * @param {any} except 替换null的
+ */
+export function handleFieldNull(dataObj, except = '-') {
+  if (!isObject(dataObj)) {
+    return dataObj;
+  }
+  let res = deepCopy(dataObj);
+  for (const key in res) {
+    if (isNull(res[key])) {
+      res[key] = except;
+    }
+  }
+  return res;
+}
+/**
+ * 下载二进制文件
+ * @param {promise} pms
+ */
+export function download(pms) {
+  pms.then((res) => {
+    const name = res.response.headers
+      .get('content-disposition')
+      .replace('attachment;filename=', '');
+    const blob = res.data;
+    const reader = new FileReader();
+    reader.readAsDataURL(blob);
+    reader.onload = (e) => {
+      const a = document.createElement('a');
+      a.download = decodeURI(name);
+      // 后端设置的文件名称在res.headers的 "content-disposition": "form-data; name=\"attachment\"; filename=\"20181211191944.zip\"",
+      a.href = e.target.result;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    };
+  });
 }
