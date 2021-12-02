@@ -24,7 +24,7 @@ export const isNumber = function (something) {
  * @param {*} something 任何
  */
 export const isRealNaN = function(something) {
-  return !isUndefined(something) && isNaN(something);
+  return Number.isNaN(something);
 };
 /**
  * 判断是否为字符串
@@ -92,10 +92,23 @@ function cloneObj(src, tar) {
   return tar
 }
 /**
+ * 深复制
+ * @param {array|object} src 
+ */
+function deepClone(src) {
+  if (isArray(src)) {
+    return cloneArr(src, []);
+  }
+  if (isObject(src)) {
+    return cloneObj(src, {});
+  }
+  return src;
+}
+/**
  * 简单深复制
  * @param {array|object} src 
  */
-function simpleClone(src) {
+function simpleDeepClone(src) {
   if (!isObject(src) && !isArray(src)) {
     return src;
   }
@@ -619,16 +632,26 @@ export function getArrByKeys(data, ...keys) {
 /**
  * 处理字段为null
  * @param {object} dataObj 数据对象
+ * @param {array} ignoreFields 忽略的字段
  * @param {any} except 替换null的
  */
-export function handleFieldNull(dataObj, except = '-') {
+export function handleFieldNull(dataObj, ignoreFields = [], except = '-') {
   if (!isObject(dataObj)) {
     return dataObj;
   }
   let res = deepCopy(dataObj);
   for (const key in res) {
-    if (isNull(res[key])) {
+    if (isArray(ignoreFields)) {
+      if (ignoreFields.includes(key)) {
+        continue;
+      }
+    }
+    const item = res[key];
+    if (isNull(item)) {
       res[key] = except;
+    } else if (isString(item)) {
+      item.toLowerCase() === 'null' &&
+      (res[key] = except);
     }
   }
   return res;
